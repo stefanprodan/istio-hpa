@@ -10,6 +10,8 @@ Starting with Kubernetes 1.7, an aggregation layer was introduced that allows 3r
 Kubernetes API by registering themselves as API add-ons. 
 Such an add-on can implement the Custom Metrics API and enable HPA access to arbitrary metrics.
 
+![Istio HPA](https://raw.githubusercontent.com/stefanprodan/istio-hpa/master/diagrams/istio-hpa-overview.png)
+
 What follows is a step-by-step guide on configuring HPA v2 with metrics provided by Istio telemetry service. 
 
 ### Setting up a Custom Metrics Server 
