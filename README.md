@@ -1,6 +1,5 @@
 # istio-hpa
 
-
 Autoscaling is an approach to automatically scale up or down workloads based on the resource usage. 
 Autoscaling in Kubernetes has two dimensions: the Cluster Autoscaler that deals with node scaling operations 
 and the Horizontal Pod Autoscaler that automatically scales the number of pods in a deployment. 
@@ -14,7 +13,7 @@ Such an add-on can implement the Custom Metrics API and enable HPA access to arb
 
 What follows is a step-by-step guide on configuring HPA v2 with metrics provided by Istio telemetry service. 
 
-### Setting up a Custom Metrics Server 
+### Installing the metrics adaptor 
 
 In order to scale based on Istio metrics you need to have two components. 
 One component that collects metrics from Istio telemetry service and stores them, the Prometheus time series database.
@@ -47,7 +46,7 @@ kubectl -n kube-system logs deployment/kube-metrics-adapter
 
 When installing Istio make sure that the telemetry service and Prometheus are enabled.
 
-### Install a demo web app
+### Installing the demo app
 
 You will use a small Golang-based web app to test the Horizontal Pod Autoscaler (HPA).
 
@@ -88,7 +87,7 @@ Status code distribution:
   [200]	100 responses
 ```
 
-### Autoscaling metrics
+### Querying the Istio metrics
 
 The Istio telemetry service collects metrics from the Envoy sidecars and stores them in Prometheus. One such metric is 
 `istio_requests_total`, with this metric you can determine the rate of requests per second a workload receives.
@@ -121,12 +120,12 @@ sum(
     )
 ) /
 count(
-  count(
-    container_memory_usage_bytes{
-      namespace="test",
-    pod_name=~"podinfo.*"
-    }
-  ) by (pod_name)
+    count(
+        container_memory_usage_bytes{
+          namespace="test",
+          pod_name=~"podinfo.*"
+        }
+    ) by (pod_name)
 )
 ```
 
@@ -145,19 +144,18 @@ metadata:
     metric-config.object.istio-requests-total.prometheus/per-replica: "true"
     metric-config.object.istio-requests-total.prometheus/query: |
       sum(
-          rate(
-              istio_requests_total{
-                destination_workload="podinfo",
-                destination_workload_namespace="test",
-                reporter="destination"
-              }[1m]
-          )
+        rate(
+          istio_requests_total{
+            destination_workload="podinfo",
+            destination_workload_namespace="test"
+          }[1m]
+        )
       ) /
       count(
         count(
           container_memory_usage_bytes{
             namespace="test",
-          pod_name=~"podinfo.*"
+            pod_name=~"podinfo.*"
           }
         ) by (pod_name)
       )
@@ -203,8 +201,11 @@ NAME      REFERENCE            TARGETS   MINPODS   MAXPODS   REPLICAS
 podinfo   Deployment/podinfo   44m/10    1         10        1
 ```
 
-Now let's start the load test and trigger a scale up event. 
-Exec into the load tester pod and use `hey` to generate load for a couple of minutes:
+### Autoscaling
+
+To test the HPA you can use the load tester to trigger a scale up event.
+
+Exec into the tester pod and use `hey` to generate load for a couple of minutes:
 
 ```bash
 kubectl -n test exec -it ${loadtester} -- sh
@@ -221,7 +222,11 @@ NAME      REFERENCE            TARGETS     MINPODS   MAXPODS   REPLICAS
 podinfo   Deployment/podinfo   25272m/10   1         10        3
 ```
 
-When the load test finishes, the number of requests per second will drop to zero and the HPA will start to scale down the workload.
-Note that the HPA has a back off mechanism that prevents rapid scale up/down events, the number of replicas will go back to one
-after a couple of minutes.
+When the load test finishes, the number of requests per second will drop to zero and the HPA will 
+start to scale down the workload.
+Note that the HPA has a back off mechanism that prevents rapid scale up/down events, 
+the number of replicas will go back to one after a couple of minutes. 
 
+By default the metrics sync happens once every 30 seconds and scaling up/down can only happen if there was 
+no rescaling within the last 3-5 minutes. In this way, the HPA prevents rapid execution of conflicting decisions 
+and gives time for the Cluster Autoscaler to kick in.
