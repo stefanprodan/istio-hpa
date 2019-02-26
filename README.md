@@ -11,14 +11,20 @@ Such an add-on can implement the Custom Metrics API and enable HPA access to arb
 
 ![Istio HPA](https://raw.githubusercontent.com/stefanprodan/istio-hpa/master/diagrams/istio-hpa-overview.png)
 
-What follows is a step-by-step guide on configuring HPA v2 with metrics provided by Istio telemetry service. 
+What follows is a step-by-step guide on configuring HPA v2 with metrics provided by Istio telemetry service.
+When installing Istio make sure that the telemetry service and Prometheus are enabled.
 
-### Installing the metrics adaptor 
+### Installing the custom metrics adapter 
 
 In order to scale based on Istio metrics you need to have two components. 
-One component that collects metrics from Istio telemetry service and stores them, the Prometheus time series database.
+One component that collects metrics from Istio telemetry service and stores them, 
+that's the Prometheus time series database.
 And a second component that extends the Kubernetes custom metrics API with the metrics supplied by the collect, 
 the Zalando's [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter).
+
+The Zalando adapter is a great alternative to the k8s-prometheus-adapter. Instead of exporting all Prometheus metrics,
+kube-metrics-adapter lets you specify a custom promql query. The query is stored as an annotation on the HPA object.
+Zalando adapter will scan the HPA objects, execute the promql queries and store the result in-memory.
 
 Clone the [istio-hpa](https://github.com/stefanprodan/istio-hpa) repository:
 
@@ -43,8 +49,6 @@ Verify the install by checking the adapter logs:
 ```bash
 kubectl -n kube-system logs deployment/kube-metrics-adapter
 ```
-
-When installing Istio make sure that the telemetry service and Prometheus are enabled.
 
 ### Installing the demo app
 
