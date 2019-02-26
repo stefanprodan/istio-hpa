@@ -91,6 +91,8 @@ Status code distribution:
   [200]	100 responses
 ```
 
+Istio records the HTTP traffic metrics 
+
 ### Querying the Istio metrics
 
 The Istio telemetry service collects metrics from the Envoy sidecars and stores them in Prometheus. One such metric is 
@@ -133,7 +135,7 @@ count(
 )
 ```
 
-### Setting up the HPA
+### Configuring the HPA with Istio metrics
 
 Using the req/sec query you can define a HPA that will scale the podinfo workload based on the number of requests 
 per second that each instance receives:
@@ -205,7 +207,7 @@ NAME      REFERENCE            TARGETS   MINPODS   MAXPODS   REPLICAS
 podinfo   Deployment/podinfo   44m/10    1         10        1
 ```
 
-### Autoscaling
+### Autoscaling based on HTTP traffic
 
 To test the HPA you can use the load tester to trigger a scale up event.
 
