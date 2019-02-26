@@ -1,0 +1,41 @@
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: podinfo
+  namespace: test
+  annotations:
+    metric-config.object.istio-requests-total.prometheus/per-replica: "true"
+    metric-config.object.istio-requests-total.prometheus/query: |
+      sum(
+          rate(
+              istio_requests_total{
+                destination_workload="podinfo",
+                destination_workload_namespace="test",
+                reporter="destination"
+              }[1m]
+          )
+      ) /
+      count(
+        count(
+          container_memory_usage_bytes{
+            namespace="test",
+          pod_name=~"podinfo.*"
+          }
+        ) by (pod_name)
+      )
+spec:
+  maxReplicas: 10
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: podinfo
+  metrics:
+    - type: Object
+      object:
+        metricName: istio-requests-total
+        target:
+          apiVersion: v1
+          kind: Pod
+          name: podinfo
+        targetValue: 10
