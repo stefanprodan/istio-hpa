@@ -10,15 +10,15 @@ Kubernetes API by registering themselves as API add-ons.
 Such an add-on can implement the Custom Metrics API and enable HPA access to arbitrary metrics.
 
 One of the advantages of using a service mesh like Istio is the builtin monitoring capability. You don't have 
-to instrument your web apps in order to monitor the traffic. The Istio telemetry service collects 
+to instrument your web apps in order to monitor the L7 traffic. The Istio telemetry service collects 
 stats like HTTP request rate, response status codes and latency form the Envoy sidecars 
 that are running alongside your apps. Besides monitoring and alerting these metrics can be used to drive autoscaling.
 
 ![Istio HPA](https://raw.githubusercontent.com/stefanprodan/istio-hpa/master/diagrams/istio-hpa-overview.png)
 
-What follows is a step-by-step guide on configuring HPA v2 with metrics provided by Istio telemetry service.
+What follows is a step-by-step guide on configuring HPA v2 with metrics provided by Istio Mixer.
 When installing Istio make sure that the telemetry service and Prometheus are enabled. 
-If you're using the GKE Istio add-on. you'll have to deploy Prometheus as described 
+If you're using the GKE Istio add-on, you'll have to deploy Prometheus as described 
 [here](https://docs.flagger.app/install/flagger-install-on-google-cloud#install-prometheus).
 
 In order to use the Istio metrics together with the Horizontal Pod Autoscaler you'll need an adapter that 
@@ -56,7 +56,7 @@ kubectl -n kube-system logs deployment/kube-metrics-adapter
 ### Installing the demo app
 
 You will use [podinfo](https://github.com/stefanprodan/k8s-podinfo), 
-a small Golang-based web app to test the Horizontal Pod Autoscaler (HPA).
+a small Golang-based web app to test the Horizontal Pod Autoscaler.
 
 First create a `test` namespace with Istio sidecar injection enabled:
 
@@ -100,8 +100,8 @@ switch to L7 routing and the telemetry service will collect HTTP metrics.
 
 ### Querying the Istio metrics
 
-The Istio telemetry service collects metrics form the mesh and stores them in Prometheus. One such metric is 
-`istio_requests_total`, with this metric you can determine the rate of requests per second a workload receives.
+The Istio telemetry service collects metrics from the mesh and stores them in Prometheus. One such metric is 
+`istio_requests_total`, with it you can determine the rate of requests per second a workload receives.
 
 This is how you can query Prometheus for the req/sec rate received by podinfo in the last minute, excluding 404s:
 
@@ -188,19 +188,49 @@ spec:
         targetValue: 10
 ```
 
+The above configuration will instruct the Horizontal Pod Autoscaler to scale up the deployment when the average traffic
+load goes over 10 req/sec per replica.
+
 Create the HPA with:
 
 ```bash
 kubectl apply -f ./podinfo/hpa.yaml
 ``` 
 
-Verify that the adapter computes the metric:
+Start a load test and verify that the adapter computes the metric:
 
 ```
 kubectl -n kube-system logs deployment/kube-metrics-adapter -f
 
 Collected 1 new metric(s)
 Collected new custom metric 'istio-requests-total' (44m) for Pod test/podinfo
+```
+
+List the custom metrics resources:
+
+```bash
+kubectl get --raw "/apis/custom.metrics.k8s.io/v1beta1" | jq .
+```
+
+The Kubernetes API should return a resource list containing the Istio metric:
+
+```json
+{
+  "kind": "APIResourceList",
+  "apiVersion": "v1",
+  "groupVersion": "custom.metrics.k8s.io/v1beta1",
+  "resources": [
+    {
+      "name": "pods/istio-requests-total",
+      "singularName": "",
+      "namespaced": true,
+      "kind": "MetricValueList",
+      "verbs": [
+        "get"
+      ]
+    }
+  ]
+}
 ```
 
 After a couple of seconds the HPA will fetch the metric from the adapter:
@@ -247,6 +277,8 @@ and gives time for the Cluster Autoscaler to kick in.
 Scaling based on traffic is not something new to Kubernetes, an ingress controllers such as 
 NGINX can expose Prometheus metrics for HPA. The difference in using Istio is that you can autoscale 
 backend services as well, apps that are accessible only from inside the mesh.
-
 I'm not a big fan of embedding code in Kubernetes yaml but the Zalando metrics adapter is flexible enough 
 to allow this kind of custom autoscaling.
+
+If you have any suggestion on improving this guide please submit an issue or PR on GitHub at 
+[stefanprodan/istio-hpa](https://github.com/stefanprodan/istio-hpa). Contributions are more than welcome!
