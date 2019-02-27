@@ -11,8 +11,10 @@ Such an add-on can implement the Custom Metrics API and enable HPA access to arb
 
 One of the advantages of using a service mesh like Istio is the builtin monitoring capability. You don't have 
 to instrument your web apps in order to monitor the L7 traffic. The Istio telemetry service collects 
-stats like HTTP request rate, response status codes and latency form the Envoy sidecars 
-that are running alongside your apps. Besides monitoring and alerting these metrics can be used to drive autoscaling.
+stats like HTTP request rate, response status codes and duration form the Envoy sidecars 
+that are running alongside your apps.
+Besides monitoring these metrics can be used to drive autoscaling and 
+[canary deployments](https://github.com/stefanprodan/flagger).
 
 ![Istio HPA](https://raw.githubusercontent.com/stefanprodan/istio-hpa/master/diagrams/istio-hpa-overview.png)
 
