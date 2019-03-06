@@ -1,14 +1,5 @@
 # istio-hpa
 
-Autoscaling is an approach to automatically scale up or down workloads based on the resource usage. 
-Autoscaling in Kubernetes has two dimensions: the Cluster Autoscaler that deals with node scaling operations 
-and the Horizontal Pod Autoscaler that automatically scales the number of pods in a deployment. 
-
-By default the Horizontal Pod Autoscaler (HPA) can scale pods based on observed CPU utilization and memory usage.
-Starting with Kubernetes 1.7, an aggregation layer was introduced that allows 3rd party applications to extend the 
-Kubernetes API by registering themselves as API add-ons. 
-Such an add-on can implement the Custom Metrics API and enable HPA access to arbitrary metrics.
-
 One of the advantages of using a service mesh like Istio is the builtin monitoring capability. You don't have 
 to instrument your web apps in order to monitor the L7 traffic. The Istio telemetry service collects 
 stats like HTTP request rate, response status codes and duration form the Envoy sidecars 
