@@ -248,7 +248,7 @@ kubectl -n test exec -it ${loadtester} -- sh
 
 ~ $ hey -z 5m -c 10 -q 2 http://podinfo.test:9898
 ```
-Presss ctrl+c then exit  to get out of load test terminal if you wanna stop prematurely.
+Press ctrl+c then exit to get out of load test terminal if you wanna stop prematurely.
 
 After a minute the HPA will start to scale up the workload until the req/sec per pod drops under the target value:
 
