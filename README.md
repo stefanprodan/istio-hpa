@@ -85,6 +85,8 @@ Summary:
 
 Status code distribution:
   [200]	100 responses
+  
+  $ exit
 ```
 
 The podinfo [ClusterIP service](https://github.com/stefanprodan/istio-hpa/blob/master/podinfo/service.yaml) 
@@ -239,13 +241,14 @@ podinfo   Deployment/podinfo   44m/10    1         10        1
 
 To test the HPA you can use the load tester to trigger a scale up event.
 
-Exec into the tester pod and use `hey` to generate load for a couple of minutes:
+Exec into the tester pod and use `hey` to generate load for a 5 minutes:
 
 ```bash
 kubectl -n test exec -it ${loadtester} -- sh
 
 ~ $ hey -z 5m -c 10 -q 2 http://podinfo.test:9898
 ```
+Press ctrl+c then exit to get out of load test terminal if you wanna stop prematurely.
 
 After a minute the HPA will start to scale up the workload until the req/sec per pod drops under the target value:
 
