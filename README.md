@@ -1,26 +1,26 @@
 # istio-hpa
 
-One of the advantages of using a service mesh like Istio is the builtin monitoring capability. You don't have 
-to instrument your web apps in order to monitor the L7 traffic. The Istio telemetry service collects 
-stats like HTTP request rate, response status codes and duration form the Envoy sidecars 
+One of the advantages of using a service mesh like Istio is the builtin monitoring capability. You don't have
+to instrument your web apps in order to monitor the L7 traffic. The Istio telemetry service collects
+stats like HTTP request rate, response status codes and duration form the Envoy sidecars
 that are running alongside your apps.
-Besides monitoring these metrics can be used to drive autoscaling and 
+Besides monitoring these metrics can be used to drive autoscaling and
 [canary deployments](https://github.com/stefanprodan/flagger).
 
 ![Istio HPA](https://raw.githubusercontent.com/stefanprodan/istio-hpa/master/diagrams/istio-hpa-overview.png)
 
 What follows is a step-by-step guide on configuring HPA v2 with metrics provided by Istio Mixer.
-When installing Istio make sure that the telemetry service and Prometheus are enabled. 
-If you're using the GKE Istio add-on, you'll have to deploy Prometheus as described 
+When installing Istio make sure that the telemetry service and Prometheus are enabled.
+If you're using the GKE Istio add-on, you'll have to deploy Prometheus as described
 [here](https://docs.flagger.app/install/flagger-install-on-google-cloud#install-prometheus).
 
-In order to use the Istio metrics together with the Horizontal Pod Autoscaler you'll need an adapter that 
-can run Prometheus queries. Zalando made a general purpose metrics adapter for Kubernetes called 
+In order to use the Istio metrics together with the Horizontal Pod Autoscaler you'll need an adapter that
+can run Prometheus queries. Zalando made a general purpose metrics adapter for Kubernetes called
 [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter).
-The Zalando adapter scans the HPA objects, executes promql queries (specified with annotations) and 
+The Zalando adapter scans the HPA objects, executes promql queries (specified with annotations) and
 stores the metrics in memory.
 
-### Installing the custom metrics adapter 
+### Installing the custom metrics adapter
 
 Clone the [istio-hpa](https://github.com/stefanprodan/istio-hpa) repository:
 
@@ -35,7 +35,7 @@ Deploy the metrics adapter in the `kube-system` namespace:
 kubectl apply -f ./kube-metrics-adapter/
 ```
 
-When the adapter starts, it will generate a self-signed cert and will register itself 
+When the adapter starts, it will generate a self-signed cert and will register itself
 under the `custom.metrics.k8s.io` group.
 
 The adapter is configured to query the Prometheus instance that's running in the `istio-system` namespace.
@@ -48,7 +48,7 @@ kubectl -n kube-system logs deployment/kube-metrics-adapter
 
 ### Installing the demo app
 
-You will use [podinfo](https://github.com/stefanprodan/k8s-podinfo), 
+You will use [podinfo](https://github.com/stefanprodan/k8s-podinfo),
 a small Golang-based web app to test the Horizontal Pod Autoscaler.
 
 First create a `test` namespace with Istio sidecar injection enabled:
@@ -70,7 +70,7 @@ Deploy the load test service in the `test` namespace:
 kubectl apply -f ./loadtester/
 ```
 
-Verify the install by calling the podinfo API. 
+Verify the install by calling the podinfo API.
 Exec into the load tester pod and use `hey` to generate load for a couple of seconds:
 
 ```bash
@@ -85,17 +85,17 @@ Summary:
 
 Status code distribution:
   [200]	100 responses
-  
+
   $ exit
 ```
 
-The podinfo [ClusterIP service](https://github.com/stefanprodan/istio-hpa/blob/master/podinfo/service.yaml) 
+The podinfo [ClusterIP service](https://github.com/stefanprodan/istio-hpa/blob/master/podinfo/service.yaml)
 exposes port 9898 under the `http` name. When using the http prefix, the Envoy sidecar will
 switch to L7 routing and the telemetry service will collect HTTP metrics.
 
 ### Querying the Istio metrics
 
-The Istio telemetry service collects metrics from the mesh and stores them in Prometheus. One such metric is 
+The Istio telemetry service collects metrics from the mesh and stores them in Prometheus. One such metric is
 `istio_requests_total`, with it you can determine the rate of requests per second a workload receives.
 
 This is how you can query Prometheus for the req/sec rate received by podinfo in the last minute, excluding 404s:
@@ -113,7 +113,7 @@ This is how you can query Prometheus for the req/sec rate received by podinfo in
   )
 ```
 
-The HPA needs to know the req/sec that each pod receives. You can use the container memory usage metric 
+The HPA needs to know the req/sec that each pod receives. You can use the container memory usage metric
 from kubelet to count the number of pods and calculate the Istio request rate per pod:
 
 ```sql
@@ -129,15 +129,15 @@ from kubelet to count the number of pods and calculate the Istio request rate pe
     count(
       container_memory_usage_bytes{
         namespace="test",
-        pod_name=~"podinfo.*"
+        pod=~"podinfo.*"
       }
-    ) by (pod_name)
+    ) by (pod)
   )
 ```
 
 ### Configuring the HPA with Istio metrics
 
-Using the req/sec query you can define a HPA that will scale the podinfo workload based on the number of requests 
+Using the req/sec query you can define a HPA that will scale the podinfo workload based on the number of requests
 per second that each instance receives:
 
 ```yaml
@@ -161,9 +161,9 @@ metadata:
         count(
           container_memory_usage_bytes{
             namespace="test",
-            pod_name=~"podinfo.*"
+            pod=~"podinfo.*"
           }
-        ) by (pod_name)
+        ) by (pod)
       )
 spec:
   maxReplicas: 10
@@ -190,7 +190,7 @@ Create the HPA with:
 
 ```bash
 kubectl apply -f ./podinfo/hpa.yaml
-``` 
+```
 
 Start a load test and verify that the adapter computes the metric:
 
@@ -259,22 +259,22 @@ NAME      REFERENCE            TARGETS     MINPODS   MAXPODS   REPLICAS
 podinfo   Deployment/podinfo   25272m/10   1         10        3
 ```
 
-When the load test finishes, the number of requests per second will drop to zero and the HPA will 
+When the load test finishes, the number of requests per second will drop to zero and the HPA will
 start to scale down the workload.
-Note that the HPA has a back off mechanism that prevents rapid scale up/down events, 
-the number of replicas will go back to one after a couple of minutes. 
+Note that the HPA has a back off mechanism that prevents rapid scale up/down events,
+the number of replicas will go back to one after a couple of minutes.
 
-By default the metrics sync happens once every 30 seconds and scaling up/down can only happen if there was 
-no rescaling within the last 3-5 minutes. In this way, the HPA prevents rapid execution of conflicting decisions 
+By default the metrics sync happens once every 30 seconds and scaling up/down can only happen if there was
+no rescaling within the last 3-5 minutes. In this way, the HPA prevents rapid execution of conflicting decisions
 and gives time for the Cluster Autoscaler to kick in.
 
 ### Wrapping up
 
-Scaling based on traffic is not something new to Kubernetes, an ingress controllers such as 
-NGINX can expose Prometheus metrics for HPA. The difference in using Istio is that you can autoscale 
+Scaling based on traffic is not something new to Kubernetes, an ingress controllers such as
+NGINX can expose Prometheus metrics for HPA. The difference in using Istio is that you can autoscale
 backend services as well, apps that are accessible only from inside the mesh.
-I'm not a big fan of embedding code in Kubernetes yaml but the Zalando metrics adapter is flexible enough 
+I'm not a big fan of embedding code in Kubernetes yaml but the Zalando metrics adapter is flexible enough
 to allow this kind of custom autoscaling.
 
-If you have any suggestion on improving this guide please submit an issue or PR on GitHub at 
+If you have any suggestion on improving this guide please submit an issue or PR on GitHub at
 [stefanprodan/istio-hpa](https://github.com/stefanprodan/istio-hpa). Contributions are more than welcome!
