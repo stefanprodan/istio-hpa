@@ -19,9 +19,9 @@ metadata:
         count(
           container_memory_usage_bytes{
             namespace="test",
-          pod_name=~"podinfo.*"
+          pod=~"podinfo.*"
           }
-        ) by (pod_name)
+        ) by (pod)
       )
 spec:
   maxReplicas: 10
